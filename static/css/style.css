@@ -144,10 +144,6 @@ a.btn:hover { background: var(--btn-hover); text-decoration: none; }
 .fig-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .fig-legend img { background: #fff; border-radius: 3px; }
 .fig-cols { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; font: 14px var(--sans); margin-top: 6px; }
-.hero-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 28px 0 0; }
-.hero-result { margin: 0; padding: 16px; border: 1px solid var(--rule); border-radius: 10px; font: 14px/1.4 var(--sans); text-align: center; }
-.hero-result strong { display: block; font-size: 34px; line-height: 1.1; color: var(--ours); margin-bottom: 4px; }
-.hero-result span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 
 /* Prose */
 .prose p { margin: 0 0 14px; }
@@ -240,15 +236,11 @@ tr.sec th { font-style: italic; color: var(--muted); padding-top: 12px; }
 .traj-pair img { border-radius: 6px; }
 .traj-pair figcaption { margin-top: 3px !important; text-align: center; font-size: 12px !important; }
 
-/* BibTeX */
-.bib { position: relative; }
-.bib pre { background: var(--soft); border-radius: 8px; padding: 16px; overflow-x: auto; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0; }
 .tbtn { font: 600 12px var(--sans); background: var(--bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
-.copy-bib { position: absolute; top: 10px; right: 10px; }
 
 @media (max-width: 720px) {
   nav { display: none; }
-  .hero-results, .chart-pair, .traj-grid { grid-template-columns: 1fr; }
+  .chart-pair, .traj-grid { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 7.5em 1fr 2.6em; }
   [data-chart="temp"] .bar-row { grid-template-columns: 10em 1fr 2.6em; }
   .g-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }

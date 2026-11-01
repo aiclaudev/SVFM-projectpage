@@ -214,12 +214,4 @@ document.querySelector(".theme-btn").addEventListener("click", () => {
   try { localStorage.setItem("theme", next); } catch (e) {}
 });
 
-document.querySelector(".copy-bib").addEventListener("click", e => {
-  const btn = e.currentTarget;
-  navigator.clipboard.writeText(document.getElementById("bibtex").textContent).then(() => {
-    btn.textContent = "Copied";
-    setTimeout(() => (btn.textContent = "Copy"), 1500);
-  });
-});
-
 render();
