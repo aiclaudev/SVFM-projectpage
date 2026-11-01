@@ -129,6 +129,8 @@ a.btn:hover { background: var(--btn-hover); text-decoration: none; }
 .prose-block { padding-top: 40px; padding-bottom: 8px; }
 .prose-block h2 { font-family: var(--sans); font-size: 24px; margin: 0 0 16px; }
 
+.tba { font: 500 16px var(--sans); color: var(--muted); margin: 0; }
+
 .site-foot { padding-top: 48px; padding-bottom: 48px; color: var(--muted); font: 14px var(--sans); text-align: center; }
 
 

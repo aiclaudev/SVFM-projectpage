@@ -1,46 +1,8 @@
-/* SVFM project page. Every number below is copied from the paper's tables (Tables 1-5, Figure 4). */
+/* SVFM project page. Every number below is copied from the paper's tables (Tables 3-5, Figure 4). */
 
 /* ---------- data ---------- */
 
 const OURS = "SVFM (ours)";
-
-// Table 1: OGBench, standard setting (8 seeds). [mean, std] per method.
-const STD = {
-  methods: ["IQL", "ReBRAC", "IDQL", "CAC", "FBRAC", "IFQL", "FQL", "CEP", "Q-Flow", OURS],
-  groups: [["Gaussian", 2], ["Diffusion", 2], ["Flow", 6]],
-  rows: [
-    ["antmaze-large", [53,3],[81,5],[21,5],[33,4],[60,6],[28,5],[79,3],[63,5],[87,5],[90,2]],
-    ["antmaze-giant", [4,1],[26,8],[0,0],[0,0],[4,4],[3,2],[9,6],[8,2],[32,7],[21,9]],
-    ["humanoidmaze-medium", [33,2],[22,8],[1,0],[53,8],[38,5],[60,14],[58,5],[59,3],[83,4],[82,4]],
-    ["humanoidmaze-large", [2,1],[2,1],[1,0],[0,0],[2,0],[11,2],[4,2],[3,1],[7,2],[20,5]],
-    ["antsoccer", [8,2],[0,0],[12,4],[2,4],[16,1],[33,6],[60,2],[65,3],[55,3],[58,3]],
-    ["scene", [28,1],[41,3],[46,3],[40,7],[45,5],[30,3],[56,2],[35,8],[61,1],[60,1]],
-    ["puzzle-3x3", [9,1],[21,1],[10,2],[19,0],[14,4],[19,1],[30,1],[25,3],[48,4],[68,3]],
-    ["puzzle-4x4", [7,1],[14,1],[29,3],[15,3],[13,1],[25,5],[17,2],[5,2],[29,2],[33,4]],
-    ["cube-single", [83,3],[91,2],[95,2],[85,9],[79,7],[79,2],[96,1],[96,1],[94,2],[94,1]],
-    ["cube-double", [7,1],[12,1],[15,6],[6,2],[15,3],[14,3],[29,2],[57,5],[32,5],[42,3]],
-  ],
-  avg: [[23,1],[31,1],[23,1],[25,2],[29,1],[30,2],[44,1],[42,1],[53,1],[57,1]],
-};
-
-// Table 2: OGBench, advanced setting (12 seeds).
-const ADV = {
-  methods: ["ReBRAC", "DAC", "QSM", "FBRAC", "IFQL", "FQL", "QAM", "QAM-E", "Q-Flow", OURS],
-  groups: [["Gaussian", 1], ["Diffusion", 2], ["Flow", 7]],
-  rows: [
-    ["antmaze-large", [94,1],[88,4],[90,4],[2,3],[36,6],[76,6],[80,5],[79,4],[93,0],[90,1]],
-    ["antmaze-giant", [57,6],[16,8],[24,9],[0,0],[1,2],[0,0],[15,5],[0,0],[41,6],[48,5]],
-    ["humanoidmaze-medium", [69,7],[83,4],[82,4],[39,4],[86,2],[68,9],[62,7],[51,16],[84,3],[83,7]],
-    ["humanoidmaze-large", [17,4],[0,0],[6,2],[0,0],[24,5],[9,4],[7,3],[2,1],[6,2],[25,3]],
-    ["scene-sparse", [65,7],[68,4],[78,3],[50,12],[84,2],[78,3],[97,1],[97,1],[97,1],[98,2]],
-    ["puzzle-3x3-sparse", [79,10],[68,11],[57,10],[0,1],[100,0],[70,16],[100,0],[100,0],[100,0],[100,0]],
-    ["puzzle-4x4-sparse", [0,0],[0,0],[0,0],[15,7],[0,0],[5,4],[0,0],[39,8],[0,0],[0,0]],
-    ["cube-double", [9,2],[35,3],[33,3],[0,0],[11,2],[46,4],[63,5],[62,3],[36,3],[69,2]],
-    ["cube-triple", [1,1],[5,3],[6,1],[0,1],[0,0],[3,2],[3,1],[5,1],[3,1],[3,1]],
-    ["cube-quadruple", [9,4],[3,4],[19,2],[0,0],[2,2],[2,4],[2,1],[5,3],[10,6],[50,2]],
-  ],
-  avg: [[40,2],[37,2],[40,2],[11,2],[34,1],[36,2],[43,1],[44,2],[47,1],[56,1]],
-};
 
 // Table 3: adaptive vs. constant temperature, averages (3 seeds).
 const TEMP = [
@@ -116,25 +78,7 @@ function barChart(host, items, max = 100) {
   host.append(list);
 }
 
-// Average-success chart for an OGBench table, ascending so SVFM lands at the bottom.
-function avgChart(host, T) {
-  const items = T.methods.map((m, i) => [m, T.avg[i][0], m === OURS]);
-  items.sort((a, b) => a[1] - b[1] || (a[2] ? 1 : -1));
-  barChart(host, items);
-}
-
 const cell = ([m, s], best) => `<td${best ? ' class="best"' : ""}>${m}<small>±${s}</small></td>`;
-
-function benchTable(T) {
-  const head1 = "<tr><th></th>" + T.groups.map(([g, n]) => `<th colspan="${n}" class="grp">${g}</th>`).join("") + "</tr>";
-  const head2 = "<tr><th>Environment</th>" + T.methods.map(m => `<th${m === OURS ? ' class="ours"' : ""}>${m}</th>`).join("") + "</tr>";
-  const row = (name, vals) => {
-    const best = Math.max(...vals.map(v => v[0]));
-    return `<tr><th>${name}</th>${vals.map(v => cell(v, v[0] === best)).join("")}</tr>`;
-  };
-  const body = T.rows.map(([n, ...v]) => row(n, v)).join("");
-  return `<table><thead>${head1}${head2}</thead><tbody>${body}</tbody><tfoot>${row("Average", T.avg)}</tfoot></table>`;
-}
 
 function liberoTable(T) {
   const head = "<tr><th></th>" + T.methods.map(m => `<th${m === OURS ? ' class="ours"' : ""}>${m}</th>`).join("") + "</tr>";
@@ -185,22 +129,13 @@ function groupedChart(host, D) {
 
 function render() {
   const q = s => document.querySelector(s);
-  avgChart(q('[data-chart="std"]'), STD);
-  avgChart(q('[data-chart="adv"]'), ADV);
   barChart(q('[data-chart="temp"]'), TEMP);
   const libItems = i => LIB.methods.map((m, j) => [m, LIB.sections[i][2][j][0], m === OURS]);
   barChart(q('[data-chart="libero"]'), libItems(0));
   barChart(q('[data-chart="liberoplus"]'), libItems(1));
   groupedChart(q('[data-chart="realflow"]'), REALFLOW);
-  q('[data-table="std"]').innerHTML = benchTable(STD);
-  q('[data-table="adv"]').innerHTML = benchTable(ADV);
   q('[data-table="libero"]').innerHTML = liberoTable(LIB);
   q('[data-table="groot"]').innerHTML = grootTable();
-
-  if (window.katex) {
-    document.querySelectorAll(".eq").forEach(e => katex.render(e.dataset.tex, e, { displayMode: true, throwOnError: false }));
-    document.querySelectorAll(".m").forEach(e => katex.render(e.textContent, e, { throwOnError: false }));
-  }
 }
 
 /* ---------- chrome ---------- */
