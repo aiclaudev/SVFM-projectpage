@@ -4,13 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SVFM</title>
-<meta name="description" content="Soft-Value Flow Matching for Offline Reinforcement Learning.">
+<meta name="description" content="Soft-Value Flow Matching (SVFM) trains a multi-step flow policy with the gradient of a soft value learned from behavior continuations, without backpropagation through sampling.">
 <meta property="og:url" content="https://aiclaudev.github.io/SVFM-projectpage/">
 <meta property="og:title" content="Soft-Value Flow Matching for Offline Reinforcement Learning">
+<meta property="og:description" content="Soft-value guidance for flow policies from fixed behavior continuations. Highest average success among compared methods on OGBench, LIBERO, and LIBERO-Plus; improves real-world manipulation.">
+<meta property="og:image" content="https://aiclaudev.github.io/SVFM-projectpage/static/images/toy_ood_intro_const.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <link rel="stylesheet" href="static/css/style.css">
 <script>
   /* The reader's theme choice, applied before first paint so the page does not flash the other theme. */
@@ -22,9 +26,10 @@
   <div class="wrap head-row">
     <a class="wordmark-sm" href="#top">SVFM</a>
     <nav aria-label="Sections">
-      <a href="#abstract">Abstract</a>
+      <a href="#problem">Problem</a>
       <a href="#method">Method</a>
       <a href="#results">Results</a>
+      <a href="#real">Real robot</a>
       <a href="#citation">Citation</a>
     </nav>
     <div class="lab-nav">
@@ -57,27 +62,273 @@
     <a class="btn" href="#citation">BibTeX</a>
   </p>
 
-  <div class="placeholder ph-teaser">Teaser figure or video</div>
+  <div class="tldr-block">
+    <p class="lede"><b>TL;DR</b> SVFM improves a multi-step flow policy with a learned critic, without backpropagating
+    through sampling. It evaluates the critic at endpoints of a <em>fixed behavior process</em>, not the current actor,
+    and supervises the actor with the gradient of the resulting soft value.</p>
+
+    <figure class="fig">
+      <div class="fig-legend">
+        <span><img src="static/images/toy_ood_intro_const_icon_data.png" alt="" width="18" height="18">Behavior data</span>
+        <span><img src="static/images/toy_ood_intro_icon_ood.png" alt="" width="18" height="18">Over-estimated OOD region</span>
+        <span><img src="static/images/toy_ood_intro_const_icon_queries.png" alt="" width="18" height="18">Critic queries</span>
+      </div>
+      <div class="paper"><img src="static/images/toy_ood_intro_const.png" alt="Four panels of a 2D toy task. Critic queries used for actor supervision fall in an over-estimated out-of-distribution region for FQL (19.1%), QAM (12.6%), and Q-Flow (39.3%), but only 1.3% of the time for SVFM." width="1800" height="436"></div>
+      <div class="fig-cols"><span>FQL</span><span>QAM</span><span>Q-Flow</span><span><b>SVFM (ours)</b></span></div>
+      <figcaption>Critic queries for actor supervision when the critic over-estimates an OOD region in a toy task.
+      Queries on actor samples enter that region, whereas SVFM evaluates the critic there much less often.</figcaption>
+    </figure>
+
+    <div class="hero-results">
+      <p class="hero-result"><strong>57%</strong>OGBench, standard<span>next best 53% (Q-Flow)</span></p>
+      <p class="hero-result"><strong>86%</strong>LIBERO with &pi;<sub>0.5</sub><span>next best 82% (Filtered BC)</span></p>
+      <p class="hero-result"><strong>99%</strong>Real robot with GR00T N1.7<span>BC+ 73%</span></p>
+    </div>
+  </div>
 </section>
 
 <section class="wrap prose-block" id="abstract">
   <h2>Abstract</h2>
-  <div class="placeholder">Abstract</div>
+  <div class="prose">
+    <p>Flow-matching policies represent multimodal actions, but improving them with a learned critic in offline
+    reinforcement learning faces two difficulties: backpropagating through multi-step sampling is costly and unstable,
+    and critic queries on actor-generated actions can expose the policy to out-of-distribution value errors.
+    We introduce Soft-Value Flow Matching (SVFM), which trains a multi-step actor with the gradient of a conditional
+    soft value for KL-regularized policy improvement. Starting from noised data actions, SVFM samples stochastic
+    continuations of a fixed behavior process and evaluates the critic at their endpoints, keeping the queries used for
+    guidance independent of the current actor. A log-mean-exp of these values provides a Monte Carlo target for a
+    soft-value network, whose gradient guides actor updates without trajectory backpropagation. We further propose an
+    adaptive temperature that scales with the spread of critic values across continuations. SVFM achieves higher average
+    success rates than the compared baselines on OGBench, LIBERO, and LIBERO-Plus. It also improves real-world
+    manipulation with both task-specific flow policies and a pretrained VLA model.</p>
+  </div>
+</section>
+
+<section class="wrap prose-block" id="problem">
+  <h2>Where the critic is queried matters</h2>
+  <div class="prose">
+    <p>Flow and diffusion policies generate actions through many integration steps, so improving them with a critic
+    usually means either backpropagating through the whole sampling trajectory, keeping the actor fixed and adding
+    test-time computation, or distilling into a one-step policy. Recent methods avoid trajectory backpropagation by
+    building guidance from the actor's own samples.</p>
+    <p>That choice has a cost in offline RL. A critic learned from a fixed dataset can over-estimate actions the data
+    never covers. When guidance comes from actor samples, every actor update also moves <em>where</em> the critic is
+    evaluated, possibly toward those over-estimated actions. In the toy task above, queries on actor samples drift into
+    the over-estimated region; queries from fixed behavior continuations stay near the data.</p>
+  </div>
 </section>
 
 <section class="wrap prose-block" id="method">
   <h2>Method</h2>
-  <div class="placeholder">Method overview figure and description</div>
+  <div class="prose">
+    <p>The Doob <i>h</i>-transform says the optimal correction to a behavior process, for KL-regularized policy
+    improvement, is the gradient of a conditional <b>soft value</b>: a log-mean-exp of critic values over the
+    behavior process's possible endpoints. SVFM learns that function directly from behavior continuations and
+    regresses the actor onto the guided velocity.</p>
+  </div>
+
+  <figure class="fig diagram" aria-label="SVFM pipeline">
+    <svg viewBox="0 0 840 230" role="img" aria-labelledby="dg-title">
+      <title id="dg-title">From a noised data action, K stochastic behavior continuations reach terminal actions; the critic scores them; a log-mean-exp gives the soft-value target; the soft value's gradient guides the flow actor.</title>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="dg-arrowhead"/></marker>
+      </defs>
+      <!-- anchor -->
+      <circle cx="70" cy="110" r="9" class="dg-anchor"/>
+      <text x="70" y="146" class="dg-lbl" text-anchor="middle">anchor x<tspan dy="4" font-size="10">t</tspan><tspan dy="-4">​</tspan></text>
+      <text x="70" y="164" class="dg-sub" text-anchor="middle">(1&minus;t)x<tspan dy="4" font-size="9">0</tspan><tspan dy="-4"> + t&middot;a</tspan></text>
+      <!-- continuations -->
+      <path d="M79,108 C130,90 160,40 230,38" class="dg-path"/>
+      <path d="M79,109 C140,100 170,80 230,82" class="dg-path"/>
+      <path d="M79,111 C140,120 170,128 230,126" class="dg-path"/>
+      <path d="M79,112 C130,135 160,175 230,172" class="dg-path"/>
+      <circle cx="234" cy="38" r="6" class="dg-end"/><circle cx="234" cy="82" r="6" class="dg-end"/>
+      <circle cx="234" cy="126" r="6" class="dg-end"/><circle cx="234" cy="172" r="6" class="dg-end"/>
+      <text x="155" y="206" class="dg-sub" text-anchor="middle">K behavior continuations (fixed u<tspan dy="4" font-size="9">&phi;</tspan><tspan dy="-4">)</tspan></text>
+      <!-- critic -->
+      <text x="262" y="42" class="dg-q">Q = 0.9</text><text x="262" y="86" class="dg-q">Q = 0.4</text>
+      <text x="262" y="130" class="dg-q">Q = 0.7</text><text x="262" y="176" class="dg-q">Q = 0.1</text>
+      <line x1="330" y1="108" x2="380" y2="108" class="dg-link" marker-end="url(#ar)"/>
+      <!-- soft value target -->
+      <rect x="388" y="72" width="160" height="72" rx="10" class="dg-box"/>
+      <text x="468" y="100" class="dg-lbl" text-anchor="middle">soft-value target</text>
+      <text x="468" y="122" class="dg-sub" text-anchor="middle">&lambda; log mean exp(Q/&lambda;)</text>
+      <line x1="548" y1="108" x2="590" y2="108" class="dg-link" marker-end="url(#ar)"/>
+      <!-- V psi -->
+      <rect x="598" y="22" width="220" height="62" rx="10" class="dg-box"/>
+      <text x="708" y="48" class="dg-lbl" text-anchor="middle">soft-value network V<tspan dy="4" font-size="10">&psi;</tspan><tspan dy="-4">(s, x</tspan><tspan dy="4" font-size="10">t</tspan><tspan dy="-4">, t)</tspan></text>
+      <text x="708" y="68" class="dg-sub" text-anchor="middle">regress onto target</text>
+      <line x1="708" y1="86" x2="708" y2="128" class="dg-link" marker-end="url(#ar)"/>
+      <text x="716" y="112" class="dg-sub">&nabla;<tspan dy="4" font-size="9">x</tspan><tspan dy="-4">V</tspan></text>
+      <rect x="598" y="134" width="220" height="62" rx="10" class="dg-box dg-ours"/>
+      <text x="708" y="160" class="dg-lbl" text-anchor="middle">flow actor v<tspan dy="4" font-size="10">&theta;</tspan><tspan dy="-4">​</tspan></text>
+      <text x="708" y="180" class="dg-sub" text-anchor="middle">target: (a &minus; x<tspan dy="4" font-size="9">0</tspan><tspan dy="-4">) + &beta;</tspan><tspan dy="4" font-size="9">t</tspan><tspan dy="-4">&nabla;V</tspan></text>
+    </svg>
+    <figcaption>The critic only sees endpoints of the fixed behavior process, so actor updates never move the queries used for supervision.
+    Toy Q values are illustrative.</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li>
+      <h3>Behavior continuations</h3>
+      <p>At a data-path anchor <span class="m">x_t=(1-t)x_0+ta</span>, re-integrate the learned behavior field
+      <span class="m">u_\phi</span> as a stochastic process with <span class="m">K</span> independent Brownian paths to get
+      terminal actions <span class="m">\{a^{(j)}\}_{j=1}^K</span>. A parameter <span class="m">\kappa\in(0,1]</span>
+      scales the noise, so continuations stay anchor-specific instead of collapsing to a common mean shift at small <span class="m">t</span>.</p>
+    </li>
+    <li>
+      <h3>Soft-value regression</h3>
+      <p>Score the endpoints with the critic and fit a soft-value network to their log-mean-exp:</p>
+      <div class="eq" data-tex="\widehat V_K(s,x_t,t)=\lambda\log\Big(\frac{1}{K}\sum_{j=1}^{K}e^{Q(s,a^{(j)})/\lambda}\Big),\qquad \mathcal L_V(\psi)=\mathbb E\big[(V_\psi(s,x_t,t)-\mathrm{sg}[\widehat V_K])^2\big]"></div>
+    </li>
+    <li>
+      <h3>Guided flow matching</h3>
+      <p>Regress the actor velocity onto the data velocity plus the scaled soft-value gradient. No trajectory
+      backpropagation is needed:</p>
+      <div class="eq" data-tex="\mathcal L_{\mathrm{actor}}(\theta)=\mathbb E\,\Big\|v_\theta(x_t,t)-\mathrm{sg}\big[(a-x_0)+\beta_t\,\nabla_x V_\psi(s,x_t,t)\big]\Big\|^2,\qquad \beta_t=\kappa^2\frac{1-t}{t\lambda}"></div>
+    </li>
+    <li>
+      <h3>Adaptive temperature</h3>
+      <p>With a constant <span class="m">\lambda</span>, how strongly the soft value favors high-value continuations
+      changes as the critic's scale changes. SVFM sets the temperature from the spread of critic values across
+      continuations, <span class="m">s_Q=\mathbb E_{x_t}[\mathrm{std}_j\,Q(s,a^{(j)})]</span>, with a dimensionless gain <span class="m">g</span>:</p>
+      <div class="eq" data-tex="\lambda=\frac{\kappa^2 s_Q}{g}\quad\Longrightarrow\quad \beta_t=\frac{g\,(1-t)}{t\,s_Q}"></div>
+      <p>The resulting guidance is invariant to positive affine rescaling of <span class="m">Q</span>.</p>
+    </li>
+  </ol>
+
+  <div class="callout">
+    <b>Exactness.</b> With exact components and fixed <span class="m">\lambda,\kappa</span>, integrating
+    <span class="m">\dot x_t=u(x_t,t)+\kappa^2\frac{1-t}{t\lambda}\nabla_xV_{\lambda,\kappa}(s,x_t,t)</span> from
+    <span class="m">x_0\sim\mathcal N(0,I)</span> produces samples from
+    <span class="m">\pi^\star(a\mid s)\propto\pi_\beta(a\mid s)\exp(Q(s,a)/\lambda)</span>, the KL-regularized optimum
+    (Proposition 1 in the paper).
+  </div>
 </section>
 
 <section class="wrap prose-block" id="results">
-  <h2>Results</h2>
-  <div class="placeholder">OGBench, LIBERO, LIBERO-Plus, and real-world results</div>
+  <h2>Offline RL on OGBench</h2>
+  <div class="prose">
+    <p>Ten OGBench domains (five tasks each) under two protocols: the <em>standard</em> setting of FQL (8 seeds) and
+    the <em>advanced</em> setting of QAM (12 seeds), which adds action chunking for manipulation, a 10-critic ensemble,
+    and pessimistic value learning. Bars show the average success rate over all domains.</p>
+  </div>
+  <div class="chart-pair">
+    <figure class="chart" data-chart="std">
+      <figcaption class="chart-title">Standard setting</figcaption>
+    </figure>
+    <figure class="chart" data-chart="adv">
+      <figcaption class="chart-title">Advanced setting</figcaption>
+    </figure>
+  </div>
+
+  <details class="table-details">
+    <summary>Per-domain results, standard setting</summary>
+    <div class="table-wrap" data-table="std"></div>
+  </details>
+  <details class="table-details">
+    <summary>Per-domain results, advanced setting</summary>
+    <div class="table-wrap" data-table="adv"></div>
+  </details>
+
+  <h3 class="sub">Offline-to-online fine-tuning</h3>
+  <div class="prose">
+    <p>Each method trains offline for 1M gradient updates, then fine-tunes for 1M online environment steps (8 seeds).
+    SVFM keeps improving with online interaction and reaches the highest final average, with the largest gain on puzzle-4x4.</p>
+  </div>
+  <figure class="fig">
+    <div class="paper"><img src="static/images/o2o_b2_final.png" alt="Success rate over 2M training steps (1M offline, then 1M online) on antmaze-giant, humanoidmaze-medium, antsoccer, cube-double, puzzle-4x4, and the average. SVFM reaches about 93% average at the end, above Q-Flow, FQL, FBRAC, and IFQL." width="2000" height="476" loading="lazy"></div>
+  </figure>
+
+  <h3 class="sub">Adaptive vs. constant temperature</h3>
+  <div class="prose">
+    <p>Under the standard setting (default tasks, 3 seeds), adaptive temperature averages 56%, above the best single
+    constant temperature (45%) and the best constant chosen per domain in hindsight (51%). It ranks first on 6 of 10 domains.</p>
+  </div>
+  <figure class="chart" data-chart="temp"></figure>
+</section>
+
+<section class="wrap prose-block" id="vla">
+  <h2>Fine-tuning a VLA: LIBERO and LIBERO-Plus</h2>
+  <div class="prose">
+    <p>We fine-tune &pi;<sub>0.5</sub> from a behavior-cloned policy trained on 5 demonstrations per task. SVFM's critic
+    sees the demonstrations and 2,000 policy rollouts, failures included. Best-of-N and QGF use a critic trained on the same
+    data for the same number of updates. LIBERO is evaluated with 50 episodes per task, LIBERO-Plus on 10,030 perturbed tasks.</p>
+  </div>
+  <div class="chart-pair">
+    <figure class="chart" data-chart="libero"><figcaption class="chart-title">LIBERO (average of 4 suites)</figcaption></figure>
+    <figure class="chart" data-chart="liberoplus"><figcaption class="chart-title">LIBERO-Plus (average of 7 perturbations)</figcaption></figure>
+  </div>
+  <div class="prose">
+    <p>The largest gain over BC is on LIBERO-Long (52% &rarr; 71%). On LIBERO-Plus, SVFM is best or tied for best under every
+    perturbation type.</p>
+  </div>
+  <details class="table-details">
+    <summary>Per-suite and per-perturbation results</summary>
+    <div class="table-wrap" data-table="libero"></div>
+  </details>
+</section>
+
+<section class="wrap prose-block" id="real">
+  <h2>Real-world manipulation</h2>
+  <div class="prose">
+    <p>Four tasks, 50 teleoperated demonstrations each, 20 trials per method and task.</p>
+  </div>
+  <figure class="fig">
+    <div class="paper"><img src="static/images/real_tasks.png" alt="The four real-world tasks: carrot in pot, bowl stacking, triple bowl stacking, and cube stacking." width="1800" height="387" loading="lazy"></div>
+  </figure>
+
+  <h3 class="sub">Task-specific flow policies</h3>
+  <div class="prose">
+    <p>ResNet-18 encoders with an MLP flow-matching actor. SVFM reaches 64% on average and matches or exceeds every baseline on every task;
+    on cube stacking, Flow BC fails all 20 trials while SVFM succeeds in half.</p>
+  </div>
+  <figure class="chart chart-grouped" data-chart="realflow"></figure>
+
+  <h3 class="sub">Pretrained VLA: GR00T N1.7</h3>
+  <div class="prose">
+    <p>Fine-tuned jointly on all four tasks. SVFM trains for 10K updates from a GR00T policy behavior-cloned for 10K updates;
+    BC+ instead behavior-clones for 20K updates, matching SVFM's total actor updates.</p>
+  </div>
+  <div class="table-wrap" data-table="groot"></div>
+
+  <h3 class="sub">Smoother, more direct motion</h3>
+  <div class="prose">
+    <p>Among successful trials, Flow BC shows irregular back-and-forth motion, while SVFM follows smoother, more consistent
+    paths through grasp and release. Four successful trials per method from the same initial placement:</p>
+  </div>
+  <figure class="fig traj">
+    <div class="traj-legend"><span class="sw sw-bc"></span>Flow BC <span class="sw sw-ours"></span>SVFM (ours)</div>
+    <div class="traj-grid">
+      <div class="traj-task"><h4>Carrot in pot</h4>
+        <div class="traj-pair">
+          <figure><img src="static/images/traj_carrot_bc_v2.png" alt="Flow BC end-effector trajectories for carrot in pot" width="452" height="381" loading="lazy"><figcaption>Flow BC</figcaption></figure>
+          <figure><img src="static/images/traj_carrot_svfm_v2.png" alt="SVFM end-effector trajectories for carrot in pot" width="452" height="381" loading="lazy"><figcaption>SVFM</figcaption></figure>
+        </div>
+      </div>
+      <div class="traj-task"><h4>Bowl stacking</h4>
+        <div class="traj-pair">
+          <figure><img src="static/images/traj_bowl_bc_v2.png" alt="Flow BC end-effector trajectories for bowl stacking" width="452" height="381" loading="lazy"><figcaption>Flow BC</figcaption></figure>
+          <figure><img src="static/images/traj_bowl_svfm_v2.png" alt="SVFM end-effector trajectories for bowl stacking" width="452" height="381" loading="lazy"><figcaption>SVFM</figcaption></figure>
+        </div>
+      </div>
+    </div>
+    <figcaption>Successful end-effector trajectories overlaid on a photograph of each scene for illustration. Each policy is trained once, so we treat these as qualitative evidence.</figcaption>
+  </figure>
 </section>
 
 <section class="wrap prose-block" id="citation">
   <h2>Citation</h2>
-  <div class="placeholder">BibTeX (after arXiv posting)</div>
+  <div class="bib">
+    <button type="button" class="tbtn copy-bib">Copy</button>
+<pre id="bibtex">@misc{lee2026svfm,
+  title  = {Soft-Value Flow Matching for Offline Reinforcement Learning},
+  author = {Lee, Dohyun and Hong, Junhyeong and Choi, Theo and Kim, Kinam and
+            Choo, Jaegul and Lee, Kyungjae and Oh, Yoonseon},
+  year   = {2026},
+  note   = {Preprint}
+}</pre>
+  </div>
 </section>
 </main>
 
@@ -85,15 +336,7 @@
   <a href="https://davian-robotics.github.io/">DAVIAN Robotics</a> &middot; KAIST AI
 </footer>
 
-<script>
-  document.querySelector(".theme-btn").addEventListener("click", function () {
-    var root = document.documentElement;
-    var dark = root.getAttribute("data-theme") === "dark" ||
-      (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
-    var next = dark ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    try { localStorage.setItem("theme", next); } catch (e) {}
-  });
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="static/js/main.js"></script>
 </body>
 </html>
